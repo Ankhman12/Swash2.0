@@ -13,6 +13,13 @@ class ASwashCharacter : public ACharacter
 {
 	GENERATED_BODY()
 
+	/** Camera boom positioning the camera behind the character */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+	class USpringArmComponent* CameraBoom;
+
+	/** Follow camera */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+	class UCameraComponent* FollowCamera;
 	
 	/** MappingContext */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
@@ -26,21 +33,9 @@ class ASwashCharacter : public ACharacter
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	class UInputAction* MoveAction;
 
-	/** Melee Attack Input Action */
-	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	//class UInputAction* MeleeAttackAction;
-
-	/** Ranged Attack Input Action */
-	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	//class UInputAction* RangedAttackAction;
-	
-	/** Interact Input Action */
-	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	//class UInputAction* InteractAction;
-
 	/** Look Input Action */
-	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	//class UInputAction* LookAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	class UInputAction* LookAction;
 
 public:
 	ASwashCharacter();
@@ -51,14 +46,8 @@ protected:
 	/** Called for movement input */
 	void Move(const FInputActionValue& Value);
 
-	/** Called for melee attack input */
-	//void StartMeleeAttack(const FInputActionValue& Value);
-
-	/** Called for ranged attack input */
-	//void StartRangedAttack(const FInputActionValue& Value);
-
-	/** Called for interact input */
-	//void Interact(const FInputActionValue& Value);
+	/** Called for looking input */
+	void Look(const FInputActionValue& Value);
 			
 
 protected:
@@ -69,6 +58,9 @@ protected:
 	virtual void BeginPlay();
 
 public:
-	
+	/** Returns CameraBoom subobject **/
+	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
+	/** Returns FollowCamera subobject **/
+	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 };
 
