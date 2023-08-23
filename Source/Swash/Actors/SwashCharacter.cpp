@@ -166,8 +166,8 @@ void ASwashCharacter::Move(const FInputActionValue& Value)
 
 void ASwashCharacter::StartJump(const FInputActionValue& Value)
 {
-	if (IsStunned)
-		return;
+	//if (IsStunned)
+	//	return;
 	
 	//Call Character's jump function, 
 	Super::Jump();
@@ -399,15 +399,18 @@ void ASwashCharacter::MeleeHitPlayer(ASwashCharacter* playerRef)
 		return;
 
 	float blockTime = GetWorldTimerManager().GetTimerElapsed(playerRef->BlockTimer);
-	if (blockTime <= ParryTimeWindow)
+	if (playerRef->IsBlocking && playerRef->GetActorForwardVector().Dot(GetActorForwardVector()) < 0)
 	{
-		//Get parried lelz
-		StartStun();
-	}
-	else if (playerRef->IsBlocking)
-	{
-		//Ya got blocked chump
-		playerRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * 300.0, 200.0));
+		if (blockTime <= ParryTimeWindow)
+		{
+			//Get parried lelz
+			StartStun();
+		}
+		else
+		{ 
+			//Ya got blocked chump
+			playerRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * 300.0, 200.0));
+		}
 	}
 	else
 	{
@@ -428,15 +431,18 @@ void ASwashCharacter::MeleeHitDummy(ASwashDummy* dummyRef)
 		return;
 
 	float blockTime = dummyRef->GetBlockTime();
-	if (blockTime <= ParryTimeWindow)
+	if (dummyRef->GetBlocking() && dummyRef->GetActorForwardVector().Dot(GetActorForwardVector()) < 0)
 	{
-		//Get parried lelz
-		StartStun();
-	}
-	else if (dummyRef->GetBlocking())
-	{
-		//Ya got blocked chump
-		dummyRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * 300.0, 200.0));
+		if (blockTime <= ParryTimeWindow)
+		{
+			//Get parried lelz
+			StartStun();
+		}
+		else
+		{
+			//Ya got blocked chump
+			dummyRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * 300.0, 200.0));
+		}
 	}
 	else
 	{
@@ -522,7 +528,6 @@ void ASwashCharacter::StartStun()
 	IsStunned = true;
 	GetCharacterMovement()->StopMovementImmediately();
 	GetCharacterMovement()->DisableMovement();
-	GetController()->SetIgnoreMoveInput(true);
 	
 	//Stun Timer
 	GetWorldTimerManager().SetTimer(StunTimer, this, &ASwashCharacter::EndStun, DefaultStunTime, false);
@@ -533,8 +538,11 @@ void ASwashCharacter::EndStun()
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("End Stun"));
 	
 	IsStunned = false;
-	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Falling);
-	GetController()->SetIgnoreMoveInput(false);
+	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
+	//Add slight knockback to jolt out of move lock
+	
+	StartJump(FInputActionValue());
+	EndJump(FInputActionValue());
 
 	//Stun Timer
 	GetWorldTimerManager().ClearTimer(StunTimer);
