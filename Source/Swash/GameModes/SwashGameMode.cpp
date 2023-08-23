@@ -1,7 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "SwashGameMode.h"
-#include "SwashCharacter.h"
 #include "UObject/ConstructorHelpers.h"
 
 ASwashGameMode::ASwashGameMode()
