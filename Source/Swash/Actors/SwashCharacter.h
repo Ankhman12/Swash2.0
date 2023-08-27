@@ -5,14 +5,20 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
+#include "AbilitySystemInterface.h"
+#include "GameplayEffect.h"
 #include "Components/BoxComponent.h"
 #include "SwashDummy.h"
 #include "SwashCharacter.generated.h"
 
 //DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMontagePlayDelegate, FName, NotifyName);
+class USwashGameplayAbility;
+class USwashAbilitySystemComponent;
+class USwashAttributeSet;
+
 
 UCLASS(config=Game)
-class ASwashCharacter : public ACharacter
+class ASwashCharacter : public ACharacter, public IAbilitySystemInterface
 {
 	GENERATED_BODY()
 
@@ -52,17 +58,23 @@ class ASwashCharacter : public ACharacter
 	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	//class UInputAction* LookAction;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	//Components
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USwashAbilitySystemComponent> AbilitySystemComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USwashAttributeSet> Attributes;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UBoxComponent> SwordHitbox;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UStaticMeshComponent> SwordMesh;
 
+
+	//Combat properties
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	FName SwordHandSocketName = "RightHandSocket";
-
-	//UPROPERTY(BlueprintAssignable)
-	//FOnMontagePlayDelegate OnBlendOut;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	bool IsBlocking = false;
@@ -100,6 +112,8 @@ class ASwashCharacter : public ACharacter
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	float ParryTimeWindow = 0.2;
 
+
+	//Climbing properties
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Climbing", meta = (AllowPrivateAccess = "true"))
 	bool IsHanging = false;
 
@@ -121,8 +135,17 @@ class ASwashCharacter : public ACharacter
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Climbing", meta = (AllowPrivateAccess = "true"))
 	float MinHangTime = 0.15;
 
+	//Ability system properties
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Abilities", meta = (AllowPrivateAccess = "true"))
+	TArray<TSubclassOf<UGameplayEffect>> PassiveGameplayEffects;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Abilities", meta = (AllowPrivateAccess = "true"))
+	TArray<TSubclassOf<USwashGameplayAbility>> GameplayAbilities;
 
+	UPROPERTY()
+	uint8 bAbilitesInitialized:1;
+
+	//Other props
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	bool IsHoldingJump;
 
@@ -130,6 +153,8 @@ public:
 	
 	//Constructor
 	ASwashCharacter();
+
+	friend USwashAttributeSet;
 
 protected:
 
@@ -170,6 +195,10 @@ protected:
 
 	void Tick(float DeltaSeconds) override;
 
+	void PossessedBy(AController* NewController) override;
+
+	void OnRep_PlayerState() override;
+
 	//void Jump() override;
 
 	//void Pause();
@@ -178,7 +207,47 @@ protected:
 	void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	// End of APawn interface
 
+	// Gameplay Ability Interface
+	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+	// End of Ability System Interface
+
+	
+	// Two below events are from RPG example project, that showcases the Gameplay Ability System (I'm stealing them)
+
+	/**
+	 * Called when character takes damage, which may have killed them
+	 *
+	 * @param DamageAmount Amount of damage that was done, not clamped vased on current health
+	 * @param HitInfo The hit info that generated this damage
+	 * @param DamageTags The gameplay tags of the event that did the damage
+	 * @param InstigatorCharacter The character the initiated this damage
+	 * @param DamageCauser The actual actor that did the damage, might be a weapon or projectile
+	*/
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnDamaged(float DamageAmount, const FHitResult& HitInfo, const struct FGameplayTagContainer& DamageTags, ASwashCharacter* InstigatorCharacter, AActor* DamageCauser);
+
+	/**
+	 * Called when health is changed, either from healing or being damaged
+	 * For famage this is called in addition to OnDamaged/OnKilled
+	 *
+	 * @param DeltaValue Change in health value, positive for heal, negative for cost. If 0 the delta is unknown
+	 * @param EventTags The gameplay tags of the event that changed mana
+	 */
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnHealthChanged(float DeltaValue, const struct FGameplayTagContainer& EventTags);
+
+	virtual void HandleDamage(float DamageAmount, const FHitResult& HitInfo, const struct FGameplayTagContainer& DamageTags, ASwashCharacter* InstigatorCharacter, AActor* DamageCauser);
+
+	virtual void HandleHealthChanged(float DeltaValue, const struct FGameplayTagContainer& EventTags);
+
+	
+
 private:
+
+	
+	// === Ability System Functions ===
+
+	void AddStartupGameplayAbilities();
 
 	// === Ledge Hanging Functions ===
 

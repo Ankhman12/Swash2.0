@@ -7,6 +7,9 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "../Components/SwashAbilitySystemComponent.h"
+#include "../Core/Abilities/SwashAttributeSet.h"
+#include "../Core/Abilities/SwashGameplayAbility.h"
 //#include "GameFramework/SpringArmComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -51,6 +54,16 @@ ASwashCharacter::ASwashCharacter()
 
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
 	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
+	
+	//Initialize Ability System props 
+	bAbilitesInitialized = false;
+
+	AbilitySystemComponent = CreateDefaultSubobject<USwashAbilitySystemComponent>(TEXT("Ability System"));
+	AbilitySystemComponent->SetIsReplicated(true);
+	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Minimal);
+
+	Attributes = CreateDefaultSubobject<USwashAttributeSet>(TEXT("Attributes"));
+
 }
 
 void ASwashCharacter::BeginPlay()
@@ -116,6 +129,20 @@ void ASwashCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInp
 
 	}
 
+	//Ability System bindings (same as in OnRep_PlayerState), whichever runs first between this and that should do this code.
+	if (AbilitySystemComponent && InputComponent)
+	{
+		const FGameplayAbilityInputBinds Binds(
+			"Confirm",
+			"Cancel",
+			FTopLevelAssetPath("ESwashAbilityInputID"),
+			static_cast<int32>(ESwashAbilityInputID::Confirm),
+			static_cast<int32>(ESwashAbilityInputID::Cancel)
+		);
+
+		AbilitySystemComponent->BindAbilityActivationToInputComponent(InputComponent, Binds);
+	}
+
 }
 
 void ASwashCharacter::Tick(float DeltaSeconds)
@@ -141,6 +168,88 @@ void ASwashCharacter::Tick(float DeltaSeconds)
 
 }
 
+
+//Ability System core and setup functions
+void ASwashCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	//Server GAS init
+	if (AbilitySystemComponent)
+	{
+		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+		AddStartupGameplayAbilities();
+	}
+}
+
+void ASwashCharacter::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+
+	AbilitySystemComponent->InitAbilityActorInfo(this, this); //client side init
+
+	if (AbilitySystemComponent && InputComponent)
+	{
+		const FGameplayAbilityInputBinds Binds(
+			"Confirm",
+			"Cancel",
+			FTopLevelAssetPath("ESwashAbilityInputID"),
+			static_cast<int32>(ESwashAbilityInputID::Confirm),
+			static_cast<int32>(ESwashAbilityInputID::Cancel)
+		);
+
+		AbilitySystemComponent->BindAbilityActivationToInputComponent(InputComponent, Binds);
+	}
+}
+
+UAbilitySystemComponent* ASwashCharacter::GetAbilitySystemComponent() const
+{
+	return AbilitySystemComponent;
+}
+
+void ASwashCharacter::AddStartupGameplayAbilities()
+{
+	check(AbilitySystemComponent);
+
+	if (GetLocalRole() == ROLE_Authority && !bAbilitesInitialized)
+	{
+		// Grant abilities, but only on server
+		for (TSubclassOf<USwashGameplayAbility>& StartupAbility : GameplayAbilities)
+		{
+			AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(StartupAbility, 1, static_cast<int32>(StartupAbility.GetDefaultObject()->AbilityInputID), this));
+		}
+
+		for (TSubclassOf<UGameplayEffect>& GameplayEffect : PassiveGameplayEffects)
+		{
+			FGameplayEffectContextHandle EffectContext = AbilitySystemComponent->MakeEffectContext();
+			EffectContext.AddSourceObject(this);
+
+			FGameplayEffectSpecHandle NewHandle = AbilitySystemComponent->MakeOutgoingSpec(GameplayEffect, 1, EffectContext);
+			if (NewHandle.IsValid())
+			{
+				//Atm, the below variable is unused, but I'm setting the return value to a variable in case its needed later.
+				FActiveGameplayEffectHandle ActiveGameplayEffectHandle = AbilitySystemComponent->ApplyGameplayEffectSpecToTarget(*NewHandle.Data.Get(), AbilitySystemComponent);
+			}
+		}
+
+		bAbilitesInitialized = true;
+	}
+}
+
+void ASwashCharacter::HandleDamage(float DamageAmount, const FHitResult& HitInfo, const FGameplayTagContainer& DamageTags, ASwashCharacter* InstigatorCharacter, AActor* DamageCauser)
+{
+	OnDamaged(DamageAmount, HitInfo, DamageTags, InstigatorCharacter, DamageCauser);
+}
+
+void ASwashCharacter::HandleHealthChanged(float DeltaValue, const FGameplayTagContainer& EventTags)
+{
+	if (bAbilitesInitialized)
+	{
+		OnHealthChanged(DeltaValue, EventTags);
+	}
+}
+
+//Basic movement functionality
 void ASwashCharacter::Move(const FInputActionValue& Value)
 {
 	// input is a Vector2D
