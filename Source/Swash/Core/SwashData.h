@@ -8,7 +8,10 @@ enum class ESwashAbilityInputID : uint8
 	None,
 	Confirm,
 	Cancel,
-	Move,
 	Jump,
-	Attack,
+	MeleeAttack,
+	RangedAttack,
+	Interact,
+	Block,
+	Special
 };

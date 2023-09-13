@@ -8,6 +8,10 @@
 #include "AbilitySystemInterface.h"
 #include "GameplayEffect.h"
 #include "Components/BoxComponent.h"
+//#include "../Actors/Weapons/Weapon.h"
+#include "../Actors/Weapons/MeleeWeapon.h"
+//#include "../Actors/Weapons/RangedWeapon.h"
+#include "../Core/SwashData.h"
 #include "SwashDummy.h"
 #include "SwashCharacter.generated.h"
 
@@ -66,11 +70,16 @@ class ASwashCharacter : public ACharacter, public IAbilitySystemInterface
 	TObjectPtr<USwashAttributeSet> Attributes;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UBoxComponent> SwordHitbox;
+	TSubclassOf<AMeleeWeapon> MeleeWeaponClass;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<AMeleeWeapon> MeleeWeaponInstance;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UStaticMeshComponent> SwordMesh;
-
+	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components" meta = (AllowPrivateAccess = "true"))
+	//TSubclassOf<ARangedWeapon> RangedWeaponClass;
+	
+	//UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	//ARangedWeapon* RangedWeaponInstance;
 
 	//Combat properties
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
@@ -94,14 +103,17 @@ class ASwashCharacter : public ACharacter, public IAbilitySystemInterface
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	bool CanHit = true;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	bool LastAttackHit = false;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	class UAnimMontage* MeleeAttackAnim;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	int AttackIndex = 0;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-	int ComboNumber = 1;
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	int ComboNumber = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	float DefaultStunTime = 2.0;
@@ -168,9 +180,8 @@ protected:
 	void EndJump(const FInputActionValue& Value);
 
 	/** Called for melee attack input */
-	void StartMelee(const FInputActionValue& Value);
-	UFUNCTION()
-	void EndMelee(UAnimMontage* Montage, bool bInterrupted); //Parameters are for setting up end of montage delegate
+	void StartMeleeInput(const FInputActionValue& Value);
+	void EndMeleeInput(const FInputActionValue& Value);
 
 	/** Called for ranged attack input */
 	void StartRanged(const FInputActionValue& Value);
@@ -182,6 +193,7 @@ protected:
 
 	/** Called for block input */
 	void StartBlock(const FInputActionValue& Value);
+	UFUNCTION(BlueprintCallable)
 	void EndBlock(const FInputActionValue& Value);
 
 	/** Called for interact input */
@@ -236,11 +248,23 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnHealthChanged(float DeltaValue, const struct FGameplayTagContainer& EventTags);
 
+	//The following are custom events or functions, still made for ability system
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void OnDeath();
+
 	virtual void HandleDamage(float DamageAmount, const FHitResult& HitInfo, const struct FGameplayTagContainer& DamageTags, ASwashCharacter* InstigatorCharacter, AActor* DamageCauser);
 
 	virtual void HandleHealthChanged(float DeltaValue, const struct FGameplayTagContainer& EventTags);
 
-	
+	UFUNCTION(BlueprintCallable)
+	virtual float GetHealth();
+
+	UFUNCTION(BlueprintCallable)
+	virtual float GetMaxHealth();
+
+	//Weapon hit delegate event
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnSwordHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 private:
 
@@ -248,6 +272,8 @@ private:
 	// === Ability System Functions ===
 
 	void AddStartupGameplayAbilities();
+
+	void SendLocalInputToASC(bool bIsPressed, const ESwashAbilityInputID AbilityInputID);
 
 	// === Ledge Hanging Functions ===
 
@@ -266,19 +292,19 @@ private:
 
 	// === Combat functions ===
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	void SetCanHit(bool newCanHit);
 
-	UFUNCTION()
-	void OnSwordHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	UFUNCTION(BlueprintCallable)
+	void MeleeHitPlayer(ASwashCharacter* playerRef);
+
+	UFUNCTION(BlueprintCallable)
+	void MeleeHitDummy(ASwashDummy* dummyRef);
 
 public: 
 
-	void MeleeStep(); //Called at the end of each individual strike within a combo attack animation
-
-	void MeleeHitPlayer(ASwashCharacter* playerRef);
-
-	void MeleeHitDummy(ASwashDummy* dummyRef);
+	//DEPRECATED, functionality in BP layer
+	//void MeleeStep(); //Called at the end of each individual strike within a combo attack animation
 
 	UFUNCTION(BlueprintCallable)
 	void StartStun();

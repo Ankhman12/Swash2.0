@@ -5,8 +5,8 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "GameFramework/Controller.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Kismet/GameplayStatics.h"
 #include "../Components/SwashAbilitySystemComponent.h"
 #include "../Core/Abilities/SwashAttributeSet.h"
 #include "../Core/Abilities/SwashGameplayAbility.h"
@@ -23,17 +23,6 @@ ASwashCharacter::ASwashCharacter()
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
-		
-	//Setup sword components
-	SwordMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("SwordMesh"));
-	SwordMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	SwordMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SwordHandSocketName); //Attach to character skeletal mesh at the specified sword hand socket
-	SwordHitbox = CreateDefaultSubobject<UBoxComponent>(TEXT("SwordHitbox"));
-	SwordHitbox->AttachToComponent(SwordMesh, FAttachmentTransformRules::KeepRelativeTransform);
-	SwordHitbox->SetGenerateOverlapEvents(true);
-	SwordHitbox->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
-	SwordHitbox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	
 
 	// Don't rotate when the controller rotates. Let that just affect the camera.
 	bUseControllerRotationPitch = false;
@@ -80,8 +69,24 @@ void ASwashCharacter::BeginPlay()
 		}
 	}
 
+	//Setup weapon actor components
+	if (MeleeWeaponClass) {
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("should spawn sword"));
+	}
+	else {
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("WEAPON CLASS IS NULL"));
+	}
+		
+	FActorSpawnParameters SpawnParams;
+	MeleeWeaponInstance = GetWorld()->SpawnActor<AMeleeWeapon>(MeleeWeaponClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+	// Set your initial values here: MeleeWeaponInstance->...
+	//Attach to character skeletal mesh at the specified weapon hand socket
+	MeleeWeaponInstance->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, SwordHandSocketName);
+
 	//Setup Collision Delegate
-	SwordHitbox->OnComponentBeginOverlap.AddDynamic(this, &ASwashCharacter::OnSwordHit);
+	MeleeWeaponInstance->Hitbox->OnComponentBeginOverlap.AddDynamic(this, &ASwashCharacter::OnSwordHit);
+
+	// Ranged weapon stuff...
 }
 
 void ASwashCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason) {
@@ -110,14 +115,15 @@ void ASwashCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInp
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ASwashCharacter::Move);
 
 		//Melee Attacking
-		EnhancedInputComponent->BindAction(MeleeAction, ETriggerEvent::Started, this, &ASwashCharacter::StartMelee);
+		EnhancedInputComponent->BindAction(MeleeAction, ETriggerEvent::Started, this, &ASwashCharacter::StartMeleeInput);
+		EnhancedInputComponent->BindAction(MeleeAction, ETriggerEvent::Completed, this, &ASwashCharacter::EndMeleeInput);
 
 		//Ranged Attacking
-		EnhancedInputComponent->BindAction(RangedAction, ETriggerEvent::Triggered, this, &ASwashCharacter::StartRanged);
+		EnhancedInputComponent->BindAction(RangedAction, ETriggerEvent::Started, this, &ASwashCharacter::StartRanged);
 		EnhancedInputComponent->BindAction(RangedAction, ETriggerEvent::Completed, this, &ASwashCharacter::EndRanged);
 
 		//Special Ability
-		EnhancedInputComponent->BindAction(SpecialAction, ETriggerEvent::Triggered, this, &ASwashCharacter::StartSpecial);
+		EnhancedInputComponent->BindAction(SpecialAction, ETriggerEvent::Started, this, &ASwashCharacter::StartSpecial);
 		EnhancedInputComponent->BindAction(SpecialAction, ETriggerEvent::Completed, this, &ASwashCharacter::EndSpecial);
 
 		//Blocking
@@ -125,22 +131,8 @@ void ASwashCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInp
 		EnhancedInputComponent->BindAction(BlockAction, ETriggerEvent::Completed, this, &ASwashCharacter::EndBlock);
 
 		//Interacting
-		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Triggered, this, &ASwashCharacter::Interact);
+		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &ASwashCharacter::Interact);
 
-	}
-
-	//Ability System bindings (same as in OnRep_PlayerState), whichever runs first between this and that should do this code.
-	if (AbilitySystemComponent && InputComponent)
-	{
-		const FGameplayAbilityInputBinds Binds(
-			"Confirm",
-			"Cancel",
-			FTopLevelAssetPath("ESwashAbilityInputID"),
-			static_cast<int32>(ESwashAbilityInputID::Confirm),
-			static_cast<int32>(ESwashAbilityInputID::Cancel)
-		);
-
-		AbilitySystemComponent->BindAbilityActivationToInputComponent(InputComponent, Binds);
 	}
 
 }
@@ -163,9 +155,6 @@ void ASwashCharacter::Tick(float DeltaSeconds)
 		LedgeCheck();
 	}
 
-	if (IsStunned)
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Move mode: %d"), static_cast<int>(GetCharacterMovement()->MovementMode)));
-
 }
 
 
@@ -187,19 +176,6 @@ void ASwashCharacter::OnRep_PlayerState()
 	Super::OnRep_PlayerState();
 
 	AbilitySystemComponent->InitAbilityActorInfo(this, this); //client side init
-
-	if (AbilitySystemComponent && InputComponent)
-	{
-		const FGameplayAbilityInputBinds Binds(
-			"Confirm",
-			"Cancel",
-			FTopLevelAssetPath("ESwashAbilityInputID"),
-			static_cast<int32>(ESwashAbilityInputID::Confirm),
-			static_cast<int32>(ESwashAbilityInputID::Cancel)
-		);
-
-		AbilitySystemComponent->BindAbilityActivationToInputComponent(InputComponent, Binds);
-	}
 }
 
 UAbilitySystemComponent* ASwashCharacter::GetAbilitySystemComponent() const
@@ -236,6 +212,21 @@ void ASwashCharacter::AddStartupGameplayAbilities()
 	}
 }
 
+void ASwashCharacter::SendLocalInputToASC(bool bIsPressed, const ESwashAbilityInputID AbilityInputID)
+{
+	if (!AbilitySystemComponent)
+		return;
+
+	if (bIsPressed)
+	{
+		AbilitySystemComponent->AbilityLocalInputPressed(static_cast<int32>(AbilityInputID));
+	}
+	else
+	{
+		AbilitySystemComponent->AbilityLocalInputReleased(static_cast<int32>(AbilityInputID));
+	}
+}
+
 void ASwashCharacter::HandleDamage(float DamageAmount, const FHitResult& HitInfo, const FGameplayTagContainer& DamageTags, ASwashCharacter* InstigatorCharacter, AActor* DamageCauser)
 {
 	OnDamaged(DamageAmount, HitInfo, DamageTags, InstigatorCharacter, DamageCauser);
@@ -247,6 +238,24 @@ void ASwashCharacter::HandleHealthChanged(float DeltaValue, const FGameplayTagCo
 	{
 		OnHealthChanged(DeltaValue, EventTags);
 	}
+}
+
+float ASwashCharacter::GetHealth()
+{
+	if (Attributes)
+	{
+		return Attributes->GetHealth();
+	}
+	return 1.f;
+}
+
+float ASwashCharacter::GetMaxHealth()
+{
+	if (Attributes)
+	{
+		return Attributes->GetMaxHealth();
+	}
+	return 1.f;
 }
 
 //Basic movement functionality
@@ -275,9 +284,12 @@ void ASwashCharacter::Move(const FInputActionValue& Value)
 
 void ASwashCharacter::StartJump(const FInputActionValue& Value)
 {
-	//if (IsStunned)
-	//	return;
+	//Ability system input
+	//SendLocalInputToASC(true, ESwashAbilityInputID::Jump);
 	
+	if (IsStunned)
+		return;
+
 	//Call Character's jump function, 
 	Super::Jump();
 
@@ -287,6 +299,9 @@ void ASwashCharacter::StartJump(const FInputActionValue& Value)
 
 void ASwashCharacter::EndJump(const FInputActionValue& Value)
 {
+	//Ability system input
+	//SendLocalInputToASC(false, ESwashAbilityInputID::Jump);
+	
 	//Call Character's stop jumping function,
 	Super::StopJumping();
 
@@ -407,100 +422,113 @@ bool ASwashCharacter::GetHanging()
 }
 
 // Melee Attack Functionality
-void ASwashCharacter::StartMelee(const FInputActionValue& Value) 
+void ASwashCharacter::StartMeleeInput(const FInputActionValue& Value) 
 {
-	if (IsHanging || GetCharacterMovement()->IsFalling() || IsStunned)
-		return;
+	//Ability system input
+	//SendLocalInputToASC(true, ESwashAbilityInputID::MeleeAttack);
+	
+	//DEPRECATED
+	//if (IsHanging || GetCharacterMovement()->IsFalling() || IsStunned)
+	//	return;
 
-	EndBlock(FInputActionValue()); //Send empty input action value so I know it was called from a function, not input
+	//EndBlock(FInputActionValue()); //Send empty input action value so I know it was called from a function, not input
 
-	SwordHitbox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	GetCharacterMovement()->DisableMovement();
-	GetController()->SetIgnoreMoveInput(true);
+	//MeleeWeaponInstance->Hitbox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	//GetCharacterMovement()->DisableMovement();
 
 	//Play animation montage
-	if (!MeleeAttackAnim)
-	{
+	//if (!MeleeAttackAnim)
+	//{
 		//Montage is NULL -> ERROR!
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Melee Attack Montage is NULL!"));
-		return;
-	}
+	//	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Melee Attack Montage is NULL!"));
+	//	return;
+	//}
 
-	if (!GetMesh()->GetAnimInstance()->Montage_IsPlaying(MeleeAttackAnim))
-	{
-		GetMesh()->GetAnimInstance()->Montage_Play(MeleeAttackAnim, 1.0, EMontagePlayReturnType::MontageLength, 0, true);
-		
-		
+	//if (!GetMesh()->GetAnimInstance()->Montage_IsPlaying(MeleeAttackAnim))
+	//{
+	//	GetMesh()->GetAnimInstance()->Montage_Play(MeleeAttackAnim, 1.0, EMontagePlayReturnType::MontageLength, 0, true);
+	//	
+	//	
 
-		FOnMontageBlendingOutStarted BlendingOutDelegate;
-		//Set up delegate for when montage ends
-		BlendingOutDelegate.BindUObject(this, &ASwashCharacter::EndMelee);
-		GetMesh()->GetAnimInstance()->Montage_SetBlendingOutDelegate(BlendingOutDelegate, MeleeAttackAnim);
+	//	FOnMontageBlendingOutStarted BlendingOutDelegate;
+	//	//Set up delegate for when montage ends
+	//	BlendingOutDelegate.BindUObject(this, &ASwashCharacter::EndMelee);
+	//	GetMesh()->GetAnimInstance()->Montage_SetBlendingOutDelegate(BlendingOutDelegate, MeleeAttackAnim);
 
-	}
-	else
-	{
-		AttackIndex = 1;
-	}
-
+	//}
+	//else
+	//{
+	//	AttackIndex = 1;
+	//}
 }
 
-void ASwashCharacter::MeleeStep()
+void ASwashCharacter::EndMeleeInput(const FInputActionValue& Value)
 {
-	AttackIndex--;
+	//Ability system input
+	//SendLocalInputToASC(false, ESwashAbilityInputID::MeleeAttack);
+}
 
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, FString::Printf(TEXT("Combo Num: %d"), ComboNumber)); //print current combo number to screen
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Idx: %d"), AttackIndex)); //print current combo number to screen
+//DEPRECATED, functionality now in blueprints
+//void ASwashCharacter::MeleeStep()
+//{
+	//AttackIndex--;
+
+//	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, FString::Printf(TEXT("Combo Num: %d"), ComboNumber)); //print current combo number to screen
+//	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Idx: %d"), AttackIndex)); //print current combo number to screen
 	
-	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
-	AddKnockback(FVector(0.0, GetActorForwardVector().Y * 350.0, 200.0));
-	if (AttackIndex < 0 || IsStunned || IsBlocking)
-	{
+	//AddKnockback(FVector(0.0, GetActorForwardVector().Y * 500.0, 200.0)); //Advance!
+
+	//GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
+	//if (AttackIndex < 0 || IsStunned || IsBlocking)
+	//{
 		//Stop Attacking
-		GetMesh()->GetAnimInstance()->Montage_Stop(0.2, MeleeAttackAnim); //Blend out of montage
-		EndMelee(MeleeAttackAnim, true);
-	}
-	else
-	{
-		ComboNumber++;
-	}
-}
+	//	GetMesh()->GetAnimInstance()->Montage_Stop(0.2, MeleeAttackAnim); //Blend out of montage
+	//	EndMelee();
+	//}
+	//else
+	//{
+	//	ComboNumber++;
+	//}
+//}
 
-void ASwashCharacter::EndMelee(UAnimMontage* Montage, bool bInterrupted)
-{
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("Test"));
+//DEPRECATED
+//void ASwashCharacter::EndMelee()
+//{
+//	AttackIndex = 0;
+//	ComboNumber = 1;
+//	MeleeWeaponInstance->Hitbox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+//	if (!IsStunned)
+//	{
+//		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta, TEXT("Melee end move reset"));
+//		GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
+//		GetController()->ResetIgnoreMoveInput();
+//	}
+//}
 
-	AttackIndex = 0;
-	ComboNumber = 1;
-	SwordHitbox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	if (!IsStunned)
-	{
-		GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
-		GetController()->SetIgnoreMoveInput(false);
-	}
-}
+//DEPRECATED CODE, function is now a blueprint event
+//void ASwashCharacter::OnSwordHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+//{
+	
+	
+	//if (OtherActor == this)
+	//	return;
 
-void ASwashCharacter::OnSwordHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
-{	
-	if (OtherActor == this)
-		return;
+	//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta, TEXT("Hit!"));
 
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta, TEXT("Hit!"));
+	//ASwashCharacter* otherPlayer = Cast<ASwashCharacter>(OtherActor);
+	//if (otherPlayer)
+	//{
+	//	MeleeHitPlayer(otherPlayer);
+	//}
 
-	ASwashCharacter* otherPlayer = Cast<ASwashCharacter>(OtherActor);
-	if (otherPlayer)
-	{
-		MeleeHitPlayer(otherPlayer);
-	}
+	////Dummy hit stuff
+	//ASwashDummy* otherDummy = Cast<ASwashDummy>(OtherActor);
+	//if (otherDummy)
+	//{
+	//	MeleeHitDummy(otherDummy);
+	//}
 
-	//Dummy hit stuff
-	ASwashDummy* otherDummy = Cast<ASwashDummy>(OtherActor);
-	if (otherDummy)
-	{
-		MeleeHitDummy(otherDummy);
-	}
-
-}
+//}
 
 void ASwashCharacter::MeleeHitPlayer(ASwashCharacter* playerRef)
 {
@@ -516,7 +544,7 @@ void ASwashCharacter::MeleeHitPlayer(ASwashCharacter* playerRef)
 			StartStun();
 		}
 		else
-		{ 
+		{
 			//Ya got blocked chump
 			playerRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * 300.0, 200.0));
 		}
@@ -524,7 +552,14 @@ void ASwashCharacter::MeleeHitPlayer(ASwashCharacter* playerRef)
 	else
 	{
 		//Ayooooo you hit somebody
-		playerRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * 600.0, 200.0));
+		if (ComboNumber <= 1) // changed for combo indexes of 0,1,2 instead of 1,2,3
+		{
+			playerRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * -100.0, 200.0));
+		}
+		else
+		{
+			playerRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * 600.0, 200.0));
+		}
 	}
 
 	//Set up hit cooldown timer
@@ -556,7 +591,14 @@ void ASwashCharacter::MeleeHitDummy(ASwashDummy* dummyRef)
 	else
 	{
 		//Ayooooo you hit somebody
-		dummyRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * 600.0, 200.0));
+		if (ComboNumber <= 1) // changed for combo indexes of 0,1,2 instead of 1,2,3
+		{
+			dummyRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * -100.0, 200.0));
+		}
+		else
+		{
+			dummyRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * 600.0, 200.0));
+		}
 	}
 
 	//Set up hit cooldown timer
@@ -574,32 +616,48 @@ void ASwashCharacter::SetCanHit(bool newCanHit)
 // Ranged Attack Functionality
 void ASwashCharacter::StartRanged(const FInputActionValue& Value) 
 {
+	//Ability system input
+	//SendLocalInputToASC(true, ESwashAbilityInputID::RangedAttack);
+	
 	//...
 }
 
 void ASwashCharacter::EndRanged(const FInputActionValue& Value)
 {
+	//Ability system input
+	//SendLocalInputToASC(false, ESwashAbilityInputID::RangedAttack);
+	
 	//...
 }
 
 // Special Ability Functionality
 void ASwashCharacter::StartSpecial(const FInputActionValue& Value) 
 {
+	//Ability system input
+	//SendLocalInputToASC(true, ESwashAbilityInputID::Special);
+	
 	//...
 }
 
 void ASwashCharacter::EndSpecial(const FInputActionValue& Value)
 {
+	//Ability system input
+	//SendLocalInputToASC(false, ESwashAbilityInputID::Special);
+	
 	//...
 }
 
 // Blocking Functionality
 void ASwashCharacter::StartBlock(const FInputActionValue& Value) 
 {
+	//Ability system input
+	//SendLocalInputToASC(true, ESwashAbilityInputID::Block);
+	
+	
 	if (IsStunned || GetCharacterMovement()->IsFalling())
 		return;
 	
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Start Block"));
+	//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Start Block"));
 
 	IsBlocking = true;
 	GetCharacterMovement()->StopMovementImmediately();
@@ -614,10 +672,13 @@ void ASwashCharacter::StartBlock(const FInputActionValue& Value)
 
 void ASwashCharacter::EndBlock(const FInputActionValue& Value)
 {
+	//Ability system input
+	//SendLocalInputToASC(false, ESwashAbilityInputID::Block);
+	
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("End Block"));
 
 	IsBlocking = false;
-	GetController()->SetIgnoreMoveInput(false);
+	GetController()->ResetIgnoreMoveInput();
 	//GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Falling);
 
 	//Clear block timer
@@ -637,6 +698,7 @@ void ASwashCharacter::StartStun()
 	IsStunned = true;
 	GetCharacterMovement()->StopMovementImmediately();
 	GetCharacterMovement()->DisableMovement();
+	GetController()->SetIgnoreMoveInput(true);
 	
 	//Stun Timer
 	GetWorldTimerManager().SetTimer(StunTimer, this, &ASwashCharacter::EndStun, DefaultStunTime, false);
@@ -648,10 +710,7 @@ void ASwashCharacter::EndStun()
 	
 	IsStunned = false;
 	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
-	//Add slight knockback to jolt out of move lock
-	
-	StartJump(FInputActionValue());
-	EndJump(FInputActionValue());
+	GetController()->ResetIgnoreMoveInput();
 
 	//Stun Timer
 	GetWorldTimerManager().ClearTimer(StunTimer);
@@ -665,6 +724,9 @@ bool ASwashCharacter::GetStunned()
 // Interact Functionality
 void ASwashCharacter::Interact(const FInputActionValue& Value) 
 {
+	//Ability system input
+	//SendLocalInputToASC(true, ESwashAbilityInputID::Interact);
+	
 	//...
 }
 

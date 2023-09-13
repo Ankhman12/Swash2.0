@@ -11,6 +11,6 @@ void USwashMeleeAnimNotifyState::NotifyBegin(USkeletalMeshComponent* MeshComp, U
 	ASwashCharacter* playerRef = Cast<ASwashCharacter>(MeshComp->GetAnimInstance()->TryGetPawnOwner());
 	if (playerRef)
 	{
-		playerRef->MeleeStep();
+		//playerRef->MeleeStep();
 	}
 }
