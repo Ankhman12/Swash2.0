@@ -60,33 +60,6 @@ void ASwashCharacter::BeginPlay()
 	// Call the base class  
 	Super::BeginPlay();
 
-	//Add Input Mapping Context
-	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
-	{
-		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-		{
-			Subsystem->AddMappingContext(DefaultMappingContext, 0);
-		}
-	}
-
-	//Setup weapon actor components
-	if (MeleeWeaponClass) {
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("should spawn sword"));
-	}
-	else {
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("WEAPON CLASS IS NULL"));
-	}
-		
-	FActorSpawnParameters SpawnParams;
-	MeleeWeaponInstance = GetWorld()->SpawnActor<AMeleeWeapon>(MeleeWeaponClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
-	// Set your initial values here: MeleeWeaponInstance->...
-	//Attach to character skeletal mesh at the specified weapon hand socket
-	MeleeWeaponInstance->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, SwordHandSocketName);
-
-	//Setup Collision Delegate
-	MeleeWeaponInstance->Hitbox->OnComponentBeginOverlap.AddDynamic(this, &ASwashCharacter::OnSwordHit);
-
-	// Ranged weapon stuff...
 }
 
 void ASwashCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason) {
@@ -99,44 +72,6 @@ void ASwashCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason) {
 	Super::EndPlay(EndPlayReason);
 }
 
-//////////////////////////////////////////////////////////////////////////
-// Input
-
-void ASwashCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
-{
-	// Set up action bindings
-	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent)) {
-		
-		//Jumping
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ASwashCharacter::StartJump);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ASwashCharacter::EndJump);
-
-		//Moving
-		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ASwashCharacter::Move);
-
-		//Melee Attacking
-		EnhancedInputComponent->BindAction(MeleeAction, ETriggerEvent::Started, this, &ASwashCharacter::StartMeleeInput);
-		EnhancedInputComponent->BindAction(MeleeAction, ETriggerEvent::Completed, this, &ASwashCharacter::EndMeleeInput);
-
-		//Ranged Attacking
-		EnhancedInputComponent->BindAction(RangedAction, ETriggerEvent::Started, this, &ASwashCharacter::StartRanged);
-		EnhancedInputComponent->BindAction(RangedAction, ETriggerEvent::Completed, this, &ASwashCharacter::EndRanged);
-
-		//Special Ability
-		EnhancedInputComponent->BindAction(SpecialAction, ETriggerEvent::Started, this, &ASwashCharacter::StartSpecial);
-		EnhancedInputComponent->BindAction(SpecialAction, ETriggerEvent::Completed, this, &ASwashCharacter::EndSpecial);
-
-		//Blocking
-		EnhancedInputComponent->BindAction(BlockAction, ETriggerEvent::Started, this, &ASwashCharacter::StartBlock);
-		EnhancedInputComponent->BindAction(BlockAction, ETriggerEvent::Completed, this, &ASwashCharacter::EndBlock);
-
-		//Interacting
-		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &ASwashCharacter::Interact);
-
-	}
-
-}
-
 void ASwashCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
@@ -146,6 +81,7 @@ void ASwashCharacter::Tick(float DeltaSeconds)
 	FVector newLocation = FVector(0.0, currentLocation.Y, currentLocation.Z);
 	SetActorLocation(newLocation, false, nullptr, ETeleportType::TeleportPhysics);
 
+	//Ledge Hang Updates
 	if (IsHanging)
 	{
 		LedgeHangUpdate();
@@ -156,7 +92,6 @@ void ASwashCharacter::Tick(float DeltaSeconds)
 	}
 
 }
-
 
 //Ability System core and setup functions
 void ASwashCharacter::PossessedBy(AController* NewController)
@@ -259,10 +194,10 @@ float ASwashCharacter::GetMaxHealth()
 }
 
 //Basic movement functionality
-void ASwashCharacter::Move(const FInputActionValue& Value)
+void ASwashCharacter::Move(const FVector2D& Value)
 {
 	// input is a Vector2D
-	FVector2D MovementVector = Value.Get<FVector2D>();
+	FVector2D MovementVector = Value;
 
 	if (Controller != nullptr)
 	{
@@ -282,40 +217,40 @@ void ASwashCharacter::Move(const FInputActionValue& Value)
 	}
 }
 
-void ASwashCharacter::StartJump(const FInputActionValue& Value)
-{
-	//Ability system input
-	//SendLocalInputToASC(true, ESwashAbilityInputID::Jump);
-	
-	if (IsStunned)
-		return;
+//void ASwashCharacter::StartJump()
+//{
+//	//Ability system input
+//	//SendLocalInputToASC(true, ESwashAbilityInputID::Jump);
+//	
+//	if (IsStunned)
+//		return;
+//
+//	//Call Character's jump function, 
+//	Super::Jump();
+//
+//	IsHoldingJump = true;
+//	EndBlock(); //Send empty input action value so I know it was called from a function, not input
+//}
+//
+//void ASwashCharacter::EndJump()
+//{
+//	//Ability system input
+//	//SendLocalInputToASC(false, ESwashAbilityInputID::Jump);
+//	
+//	//Call Character's stop jumping function,
+//	Super::StopJumping();
+//
+//	IsHoldingJump = false;
+//
+//}
 
-	//Call Character's jump function, 
-	Super::Jump();
-
-	IsHoldingJump = true;
-	EndBlock(FInputActionValue()); //Send empty input action value so I know it was called from a function, not input
-}
-
-void ASwashCharacter::EndJump(const FInputActionValue& Value)
-{
-	//Ability system input
-	//SendLocalInputToASC(false, ESwashAbilityInputID::Jump);
-	
-	//Call Character's stop jumping function,
-	Super::StopJumping();
-
-	IsHoldingJump = false;
-
-}
-
-void ASwashCharacter::AddKnockback(FVector impulse)
-{
-	if (GetCharacterMovement()->IsFalling()) //If the character is in the air, don't apply knockback
-		return;
-
-	LaunchCharacter(impulse, false, false); // Add instant knockback force with given impulse
-}
+//void ASwashCharacter::AddKnockback(FVector impulse)
+//{
+//	if (GetCharacterMovement()->IsFalling()) //If the character is in the air, don't apply knockback
+//		return;
+//
+//	LaunchCharacter(impulse, false, false); // Add instant knockback force with given impulse
+//}
 
 // Ledge Climbing Functionality
 void ASwashCharacter::LedgeCheck()
@@ -421,314 +356,154 @@ bool ASwashCharacter::GetHanging()
 	return IsHanging;
 }
 
-// Melee Attack Functionality
-void ASwashCharacter::StartMeleeInput(const FInputActionValue& Value) 
-{
-	//Ability system input
-	//SendLocalInputToASC(true, ESwashAbilityInputID::MeleeAttack);
-	
-	//DEPRECATED
-	//if (IsHanging || GetCharacterMovement()->IsFalling() || IsStunned)
-	//	return;
-
-	//EndBlock(FInputActionValue()); //Send empty input action value so I know it was called from a function, not input
-
-	//MeleeWeaponInstance->Hitbox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	//GetCharacterMovement()->DisableMovement();
-
-	//Play animation montage
-	//if (!MeleeAttackAnim)
-	//{
-		//Montage is NULL -> ERROR!
-	//	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Melee Attack Montage is NULL!"));
-	//	return;
-	//}
-
-	//if (!GetMesh()->GetAnimInstance()->Montage_IsPlaying(MeleeAttackAnim))
-	//{
-	//	GetMesh()->GetAnimInstance()->Montage_Play(MeleeAttackAnim, 1.0, EMontagePlayReturnType::MontageLength, 0, true);
-	//	
-	//	
-
-	//	FOnMontageBlendingOutStarted BlendingOutDelegate;
-	//	//Set up delegate for when montage ends
-	//	BlendingOutDelegate.BindUObject(this, &ASwashCharacter::EndMelee);
-	//	GetMesh()->GetAnimInstance()->Montage_SetBlendingOutDelegate(BlendingOutDelegate, MeleeAttackAnim);
-
-	//}
-	//else
-	//{
-	//	AttackIndex = 1;
-	//}
-}
-
-void ASwashCharacter::EndMeleeInput(const FInputActionValue& Value)
-{
-	//Ability system input
-	//SendLocalInputToASC(false, ESwashAbilityInputID::MeleeAttack);
-}
-
-//DEPRECATED, functionality now in blueprints
-//void ASwashCharacter::MeleeStep()
+//Melee Hits
+//void ASwashCharacter::MeleeHitPlayer(ASwashCharacter* playerRef)
 //{
-	//AttackIndex--;
-
-//	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, FString::Printf(TEXT("Combo Num: %d"), ComboNumber)); //print current combo number to screen
-//	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Idx: %d"), AttackIndex)); //print current combo number to screen
-	
-	//AddKnockback(FVector(0.0, GetActorForwardVector().Y * 500.0, 200.0)); //Advance!
-
-	//GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
-	//if (AttackIndex < 0 || IsStunned || IsBlocking)
-	//{
-		//Stop Attacking
-	//	GetMesh()->GetAnimInstance()->Montage_Stop(0.2, MeleeAttackAnim); //Blend out of montage
-	//	EndMelee();
-	//}
-	//else
-	//{
-	//	ComboNumber++;
-	//}
-//}
-
-//DEPRECATED
-//void ASwashCharacter::EndMelee()
-//{
-//	AttackIndex = 0;
-//	ComboNumber = 1;
-//	MeleeWeaponInstance->Hitbox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-//	if (!IsStunned)
+//	if (!CanHit)
+//		return;
+//
+//	float blockTime = GetWorldTimerManager().GetTimerElapsed(playerRef->BlockTimer);
+//	if (playerRef->IsBlocking && playerRef->GetActorForwardVector().Dot(GetActorForwardVector()) < 0)
 //	{
-//		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta, TEXT("Melee end move reset"));
-//		GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
-//		GetController()->ResetIgnoreMoveInput();
+//		if (blockTime <= ParryTimeWindow)
+//		{
+//			//Get parried lelz
+//			StartStun();
+//		}
+//		else
+//		{
+//			//Ya got blocked chump
+//			playerRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * 300.0, 200.0));
+//		}
 //	}
+//	else
+//	{
+//		//Ayooooo you hit somebody
+//		if (ComboNumber <= 1) // changed for combo indexes of 0,1,2 instead of 1,2,3
+//		{
+//			playerRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * -100.0, 200.0));
+//		}
+//		else
+//		{
+//			playerRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * 600.0, 200.0));
+//		}
+//	}
+//
+//	//Set up hit cooldown timer
+//	SetCanHit(false);
+//	FTimerDelegate hitCooldownDelegate;
+//	hitCooldownDelegate.BindUFunction(this, "SetCanHit", true); //Set up delegate to pass bool parameter to function after timer ends
+//	GetWorldTimerManager().SetTimer(HitCooldownTimer, hitCooldownDelegate, DefaultHitCooldown, false);
 //}
 
-//DEPRECATED CODE, function is now a blueprint event
-//void ASwashCharacter::OnSwordHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+//void ASwashCharacter::MeleeHitDummy(ASwashDummy* dummyRef)
 //{
-	
-	
-	//if (OtherActor == this)
-	//	return;
-
-	//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta, TEXT("Hit!"));
-
-	//ASwashCharacter* otherPlayer = Cast<ASwashCharacter>(OtherActor);
-	//if (otherPlayer)
-	//{
-	//	MeleeHitPlayer(otherPlayer);
-	//}
-
-	////Dummy hit stuff
-	//ASwashDummy* otherDummy = Cast<ASwashDummy>(OtherActor);
-	//if (otherDummy)
-	//{
-	//	MeleeHitDummy(otherDummy);
-	//}
-
+//	if (!CanHit)
+//		return;
+//
+//	float blockTime = dummyRef->GetBlockTime();
+//	if (dummyRef->GetBlocking() && dummyRef->GetActorForwardVector().Dot(GetActorForwardVector()) < 0)
+//	{
+//		if (blockTime <= ParryTimeWindow)
+//		{
+//			//Get parried lelz
+//			StartStun();
+//		}
+//		else
+//		{
+//			//Ya got blocked chump
+//			dummyRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * 300.0, 200.0));
+//		}
+//	}
+//	else
+//	{
+//		//Ayooooo you hit somebody
+//		if (ComboNumber <= 1) // changed for combo indexes of 0,1,2 instead of 1,2,3
+//		{
+//			dummyRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * -100.0, 200.0));
+//		}
+//		else
+//		{
+//			dummyRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * 600.0, 200.0));
+//		}
+//	}
+//
+//	//Set up hit cooldown timer
+//	SetCanHit(false);
+//	FTimerDelegate hitCooldownDelegate;
+//	hitCooldownDelegate.BindUFunction(this, "SetCanHit", true); //Set up delegate to pass bool parameter to function after timer ends
+//	GetWorldTimerManager().SetTimer(HitCooldownTimer, hitCooldownDelegate, DefaultHitCooldown, false);
 //}
 
-void ASwashCharacter::MeleeHitPlayer(ASwashCharacter* playerRef)
-{
-	if (!CanHit)
-		return;
-
-	float blockTime = GetWorldTimerManager().GetTimerElapsed(playerRef->BlockTimer);
-	if (playerRef->IsBlocking && playerRef->GetActorForwardVector().Dot(GetActorForwardVector()) < 0)
-	{
-		if (blockTime <= ParryTimeWindow)
-		{
-			//Get parried lelz
-			StartStun();
-		}
-		else
-		{
-			//Ya got blocked chump
-			playerRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * 300.0, 200.0));
-		}
-	}
-	else
-	{
-		//Ayooooo you hit somebody
-		if (ComboNumber <= 1) // changed for combo indexes of 0,1,2 instead of 1,2,3
-		{
-			playerRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * -100.0, 200.0));
-		}
-		else
-		{
-			playerRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * 600.0, 200.0));
-		}
-	}
-
-	//Set up hit cooldown timer
-	SetCanHit(false);
-	FTimerDelegate hitCooldownDelegate;
-	hitCooldownDelegate.BindUFunction(this, "SetCanHit", true); //Set up delegate to pass bool parameter to function after timer ends
-	GetWorldTimerManager().SetTimer(HitCooldownTimer, hitCooldownDelegate, DefaultHitCooldown, false);
-}
-
-void ASwashCharacter::MeleeHitDummy(ASwashDummy* dummyRef)
-{
-	if (!CanHit)
-		return;
-
-	float blockTime = dummyRef->GetBlockTime();
-	if (dummyRef->GetBlocking() && dummyRef->GetActorForwardVector().Dot(GetActorForwardVector()) < 0)
-	{
-		if (blockTime <= ParryTimeWindow)
-		{
-			//Get parried lelz
-			StartStun();
-		}
-		else
-		{
-			//Ya got blocked chump
-			dummyRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * 300.0, 200.0));
-		}
-	}
-	else
-	{
-		//Ayooooo you hit somebody
-		if (ComboNumber <= 1) // changed for combo indexes of 0,1,2 instead of 1,2,3
-		{
-			dummyRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * -100.0, 200.0));
-		}
-		else
-		{
-			dummyRef->AddKnockback(FVector(0.0, GetActorForwardVector().Y * 600.0, 200.0));
-		}
-	}
-
-	//Set up hit cooldown timer
-	SetCanHit(false);
-	FTimerDelegate hitCooldownDelegate;
-	hitCooldownDelegate.BindUFunction(this, "SetCanHit", true); //Set up delegate to pass bool parameter to function after timer ends
-	GetWorldTimerManager().SetTimer(HitCooldownTimer, hitCooldownDelegate, DefaultHitCooldown, false);
-}
-
-void ASwashCharacter::SetCanHit(bool newCanHit)
-{
-	CanHit = newCanHit;
-}
-
-// Ranged Attack Functionality
-void ASwashCharacter::StartRanged(const FInputActionValue& Value) 
-{
-	//Ability system input
-	//SendLocalInputToASC(true, ESwashAbilityInputID::RangedAttack);
-	
-	//...
-}
-
-void ASwashCharacter::EndRanged(const FInputActionValue& Value)
-{
-	//Ability system input
-	//SendLocalInputToASC(false, ESwashAbilityInputID::RangedAttack);
-	
-	//...
-}
-
-// Special Ability Functionality
-void ASwashCharacter::StartSpecial(const FInputActionValue& Value) 
-{
-	//Ability system input
-	//SendLocalInputToASC(true, ESwashAbilityInputID::Special);
-	
-	//...
-}
-
-void ASwashCharacter::EndSpecial(const FInputActionValue& Value)
-{
-	//Ability system input
-	//SendLocalInputToASC(false, ESwashAbilityInputID::Special);
-	
-	//...
-}
+//void ASwashCharacter::SetCanHit(bool newCanHit)
+//{
+//	CanHit = newCanHit;
+//}
 
 // Blocking Functionality
-void ASwashCharacter::StartBlock(const FInputActionValue& Value) 
-{
-	//Ability system input
-	//SendLocalInputToASC(true, ESwashAbilityInputID::Block);
-	
-	
-	if (IsStunned || GetCharacterMovement()->IsFalling())
-		return;
-	
-	//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Start Block"));
+//void ASwashCharacter::StartBlock() 
+//{
+//	if (IsStunned || GetCharacterMovement()->IsFalling())
+//		return;
+//
+//	IsBlocking = true;
+//	GetCharacterMovement()->StopMovementImmediately();
+//	GetController()->SetIgnoreMoveInput(true);
+//	//GetCharacterMovement()->DisableMovement();
+//	
+//	//Start block timer
+//	FTimerDelegate emptyDelegate;
+//	emptyDelegate.BindLambda([]() {}); //Empty function
+//	GetWorldTimerManager().SetTimer(BlockTimer, emptyDelegate, 1.0, true); //Loop this timer (inbLoop == true) while incrementing it (rate == -X.0) 
+//}
+//
+//void ASwashCharacter::EndBlock()
+//{
+//	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("End Block"));
+//
+//	IsBlocking = false;
+//	GetController()->ResetIgnoreMoveInput();
+//	//GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Falling);
+//
+//	//Clear block timer
+//	GetWorldTimerManager().ClearTimer(BlockTimer);
+//}
 
-	IsBlocking = true;
-	GetCharacterMovement()->StopMovementImmediately();
-	GetController()->SetIgnoreMoveInput(true);
-	//GetCharacterMovement()->DisableMovement();
-	
-	//Start block timer
-	FTimerDelegate emptyDelegate;
-	emptyDelegate.BindLambda([]() {}); //Empty function
-	GetWorldTimerManager().SetTimer(BlockTimer, emptyDelegate, 1.0, true); //Loop this timer (inbLoop == true) while incrementing it (rate == -X.0) 
-}
-
-void ASwashCharacter::EndBlock(const FInputActionValue& Value)
-{
-	//Ability system input
-	//SendLocalInputToASC(false, ESwashAbilityInputID::Block);
-	
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("End Block"));
-
-	IsBlocking = false;
-	GetController()->ResetIgnoreMoveInput();
-	//GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Falling);
-
-	//Clear block timer
-	GetWorldTimerManager().ClearTimer(BlockTimer);
-}
-
-bool ASwashCharacter::GetBlocking()
-{
-	return IsBlocking;
-}
+//bool ASwashCharacter::GetBlocking()
+//{
+//	return IsBlocking;
+//}
 
 // Stun Functionality
-void ASwashCharacter::StartStun()
-{
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Start Stun"));
-	
-	IsStunned = true;
-	GetCharacterMovement()->StopMovementImmediately();
-	GetCharacterMovement()->DisableMovement();
-	GetController()->SetIgnoreMoveInput(true);
-	
-	//Stun Timer
-	GetWorldTimerManager().SetTimer(StunTimer, this, &ASwashCharacter::EndStun, DefaultStunTime, false);
-}
+//void ASwashCharacter::StartStun()
+//{
+//	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Start Stun"));
+//	
+//	IsStunned = true;
+//	GetCharacterMovement()->StopMovementImmediately();
+//	GetCharacterMovement()->DisableMovement();
+//	GetController()->SetIgnoreMoveInput(true);
+//	
+//	//Stun Timer
+//	GetWorldTimerManager().SetTimer(StunTimer, this, &ASwashCharacter::EndStun, DefaultStunTime, false);
+//}
 
-void ASwashCharacter::EndStun()
-{
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("End Stun"));
-	
-	IsStunned = false;
-	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
-	GetController()->ResetIgnoreMoveInput();
+//void ASwashCharacter::EndStun()
+//{
+//	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("End Stun"));
+//	
+//	IsStunned = false;
+//	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
+//	GetController()->ResetIgnoreMoveInput();
+//
+//	//Stun Timer
+//	GetWorldTimerManager().ClearTimer(StunTimer);
+//}
 
-	//Stun Timer
-	GetWorldTimerManager().ClearTimer(StunTimer);
-}
-
-bool ASwashCharacter::GetStunned()
-{
-	return IsStunned;
-}
-
-// Interact Functionality
-void ASwashCharacter::Interact(const FInputActionValue& Value) 
-{
-	//Ability system input
-	//SendLocalInputToASC(true, ESwashAbilityInputID::Interact);
-	
-	//...
-}
+//bool ASwashCharacter::GetStunned()
+//{
+//	return IsStunned;
+//}
 
 
 

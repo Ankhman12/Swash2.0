@@ -26,41 +26,7 @@ class ASwashCharacter : public ACharacter, public IAbilitySystemInterface
 {
 	GENERATED_BODY()
 
-	/** MappingContext */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	class UInputMappingContext* DefaultMappingContext;
-
-	/** Jump Input Action */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	class UInputAction* JumpAction;
-
-	/** Move Input Action */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	class UInputAction* MoveAction;
-
-	/** Melee Attack Input Action */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	class UInputAction* MeleeAction;
-
-	/** Ranged Attack Input Action */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	class UInputAction* RangedAction;
-	
-	/** Interact Input Action */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	class UInputAction* InteractAction;
-
-	/** Block Input Action */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	class UInputAction* BlockAction;
-
-	/** Special Ability Input Action */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	class UInputAction* SpecialAction;
-
-	/** Look Input Action */
-	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	//class UInputAction* LookAction;
+private:
 
 	//Components
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
@@ -68,62 +34,6 @@ class ASwashCharacter : public ACharacter, public IAbilitySystemInterface
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USwashAttributeSet> Attributes;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
-	TSubclassOf<AMeleeWeapon> MeleeWeaponClass;
-	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<AMeleeWeapon> MeleeWeaponInstance;
-
-	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components" meta = (AllowPrivateAccess = "true"))
-	//TSubclassOf<ARangedWeapon> RangedWeaponClass;
-	
-	//UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
-	//ARangedWeapon* RangedWeaponInstance;
-
-	//Combat properties
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-	FName SwordHandSocketName = "RightHandSocket";
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-	bool IsBlocking = false;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-	bool IsStunned = false;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-	FTimerHandle BlockTimer;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-	FTimerHandle StunTimer;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-	FTimerHandle HitCooldownTimer;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-	bool CanHit = true;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-	bool LastAttackHit = false;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-	class UAnimMontage* MeleeAttackAnim;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-	int AttackIndex = 0;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-	int ComboNumber = 0;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-	float DefaultStunTime = 2.0;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-	float DefaultHitCooldown = 0.15;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-	float ParryTimeWindow = 0.2;
-
 
 	//Climbing properties
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Climbing", meta = (AllowPrivateAccess = "true"))
@@ -157,8 +67,10 @@ class ASwashCharacter : public ACharacter, public IAbilitySystemInterface
 	UPROPERTY()
 	uint8 bAbilitesInitialized:1;
 
+public:
+
 	//Other props
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool IsHoldingJump;
 
 public:
@@ -168,36 +80,44 @@ public:
 
 	friend USwashAttributeSet;
 
-protected:
-
 	//INPUT FUNCTIONS
 
 	/** Called for movement input */
-	void Move(const FInputActionValue& Value);
+	void Move(const FVector2D& Value);
 
 	/** Called for jump input */
-	void StartJump(const FInputActionValue& Value);
-	void EndJump(const FInputActionValue& Value);
+	UFUNCTION(BlueprintImplementableEvent)
+	void StartJump();
+	UFUNCTION(BlueprintImplementableEvent)
+	void EndJump();
 
 	/** Called for melee attack input */
-	void StartMeleeInput(const FInputActionValue& Value);
-	void EndMeleeInput(const FInputActionValue& Value);
+	UFUNCTION(BlueprintImplementableEvent)
+	void StartMelee();
+	UFUNCTION(BlueprintImplementableEvent)
+	void EndMelee();
 
 	/** Called for ranged attack input */
-	void StartRanged(const FInputActionValue& Value);
-	void EndRanged(const FInputActionValue& Value);
+	UFUNCTION(BlueprintImplementableEvent)
+	void StartRanged();
+	UFUNCTION(BlueprintImplementableEvent)
+	void EndRanged();
 
 	/** Called for special ability input */
-	void StartSpecial(const FInputActionValue& Value);
-	void EndSpecial(const FInputActionValue& Value);
+	UFUNCTION(BlueprintImplementableEvent)
+	void StartSpecial();
+	UFUNCTION(BlueprintImplementableEvent)
+	void EndSpecial();
 
 	/** Called for block input */
-	void StartBlock(const FInputActionValue& Value);
-	UFUNCTION(BlueprintCallable)
-	void EndBlock(const FInputActionValue& Value);
+	UFUNCTION(BlueprintImplementableEvent)
+	void StartBlock();
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void EndBlock();
 
 	/** Called for interact input */
-	void Interact(const FInputActionValue& Value);
+	UFUNCTION(BlueprintImplementableEvent)
+	void Interact();
 
 protected:
 
@@ -210,14 +130,6 @@ protected:
 	void PossessedBy(AController* NewController) override;
 
 	void OnRep_PlayerState() override;
-
-	//void Jump() override;
-
-	//void Pause();
-
-	// APawn interface
-	void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-	// End of APawn interface
 
 	// Gameplay Ability Interface
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
@@ -263,11 +175,10 @@ protected:
 	virtual float GetMaxHealth();
 
 	//Weapon hit delegate event
-	UFUNCTION(BlueprintImplementableEvent)
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void OnSwordHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 private:
-
 	
 	// === Ability System Functions ===
 
@@ -289,36 +200,27 @@ private:
 	void SetCanLedgeCheck(bool canCheck);
 
 	void LedgeVault(FVector LedgePos);
-
-	// === Combat functions ===
-
-	UFUNCTION(BlueprintCallable)
-	void SetCanHit(bool newCanHit);
-
-	UFUNCTION(BlueprintCallable)
-	void MeleeHitPlayer(ASwashCharacter* playerRef);
-
-	UFUNCTION(BlueprintCallable)
-	void MeleeHitDummy(ASwashDummy* dummyRef);
+	
 
 public: 
 
-	//DEPRECATED, functionality in BP layer
-	//void MeleeStep(); //Called at the end of each individual strike within a combo attack animation
+	// === Combat functions ===
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void MeleeHitPlayer(ASwashCharacter* playerRef);
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void MeleeHitDummy(ASwashDummy* dummyRef);
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void StartStun();
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void EndStun();
-
-	bool GetStunned();
-
-	bool GetBlocking();
 
 	bool GetHanging();
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void AddKnockback(FVector impulse);
 
 };
