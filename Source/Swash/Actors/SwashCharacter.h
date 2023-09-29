@@ -73,6 +73,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool IsHoldingJump;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FGameplayTag HangingTag;
 public:
 	
 	//Constructor

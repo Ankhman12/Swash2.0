@@ -300,6 +300,7 @@ void ASwashCharacter::StartLedgeHang(FVector LedgePos)
 	FVector hangPos = LedgePos + FVector(0.0, -65.0 * GetActorForwardVector().Y, -75.0);
 	SetActorLocation(hangPos, false, nullptr, ETeleportType::ResetPhysics);
 	IsHanging = true;
+	AbilitySystemComponent->AddLooseGameplayTag(HangingTag);
 
 	//Start hang timer
 	FTimerDelegate emptyDelegate;
@@ -329,6 +330,7 @@ void ASwashCharacter::EndLedgeHang()
 	IsHanging = false;
 	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Falling);
 	GetWorldTimerManager().ClearTimer(HangTimer);
+	AbilitySystemComponent->RemoveLooseGameplayTag(HangingTag);
 
 
 	//Ledge Hang Cooldown
