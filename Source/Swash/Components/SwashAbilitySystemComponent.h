@@ -17,4 +17,12 @@ class SWASH_API USwashAbilitySystemComponent : public UAbilitySystemComponent
 public:
 	USwashAbilitySystemComponent();
 	
+	UFUNCTION(BlueprintCallable)
+	void BP_GetOwnedGameplayTags(FGameplayTagContainer& TagContainer) const;
+
+	/*UFUNCTION(BlueprintCallable)
+	void AddLooseGameplayTag(const FGameplayTag& GameplayTag, bool Replicated, int Count=1);
+
+	UFUNCTION(BlueprintCallable)
+	void RemoveLooseGameplayTag(const FGameplayTag& GameplayTag, bool Replicated, int Count=1);*/
 };
