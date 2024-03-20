@@ -58,7 +58,7 @@ void ASwashPlayerController::SetupInputComponent()
 
 		//Melee Attacking
 		EnhancedInputComponent->BindAction(MeleeAction, ETriggerEvent::Started, this, &ASwashPlayerController::CallStartMelee);
-		EnhancedInputComponent->BindAction(MeleeAction, ETriggerEvent::Completed, this, &ASwashPlayerController::CallEndMelee);
+		//EnhancedInputComponent->BindAction(MeleeAction, ETriggerEvent::Completed, this, &ASwashPlayerController::CallEndMelee);
 
 		//Ranged Attacking
 		EnhancedInputComponent->BindAction(RangedAction, ETriggerEvent::Started, this, &ASwashPlayerController::CallStartRanged);
@@ -66,14 +66,15 @@ void ASwashPlayerController::SetupInputComponent()
 
 		//Special Ability
 		EnhancedInputComponent->BindAction(SpecialAction, ETriggerEvent::Started, this, &ASwashPlayerController::CallStartSpecial);
-		EnhancedInputComponent->BindAction(SpecialAction, ETriggerEvent::Completed, this, &ASwashPlayerController::CallEndSpecial);
+		//EnhancedInputComponent->BindAction(SpecialAction, ETriggerEvent::Completed, this, &ASwashPlayerController::CallEndSpecial);
 
 		//Blocking
 		EnhancedInputComponent->BindAction(BlockAction, ETriggerEvent::Started, this, &ASwashPlayerController::CallStartBlock);
 		EnhancedInputComponent->BindAction(BlockAction, ETriggerEvent::Completed, this, &ASwashPlayerController::CallEndBlock);
 
 		//Interacting
-		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &ASwashPlayerController::CallInteract);
+		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &ASwashPlayerController::CallStartInteract);
+		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Completed, this, &ASwashPlayerController::CallEndInteract);
 
 		//Menu (Spawning for now)
 		EnhancedInputComponent->BindAction(MenuAction, ETriggerEvent::Started, this, &ASwashPlayerController::CallSpawn);
@@ -98,41 +99,41 @@ void ASwashPlayerController::CallEndJump(const FInputActionValue& Value)
 		possessedPawn->EndJump();
 }
 
-void ASwashPlayerController::CallStartMelee(const FInputActionValue& Value)
+void ASwashPlayerController::CallStartMelee(const FInputActionValue& Value) 
 {
 	if (possessedPawn)
-		possessedPawn->StartMelee();
+		possessedPawn->StartSlash();
 }
 
-void ASwashPlayerController::CallEndMelee(const FInputActionValue& Value)
-{
-	if (possessedPawn)
-		possessedPawn->EndMelee();
-}
+//void ASwashPlayerController::CallEndMelee(const FInputActionValue& Value)
+//{
+//	if (possessedPawn)
+//		possessedPawn->EndSlash();
+//}
 
 void ASwashPlayerController::CallStartRanged(const FInputActionValue& Value)
-{
-	if (possessedPawn)
-		possessedPawn->StartRanged();
-}
-
-void ASwashPlayerController::CallEndRanged(const FInputActionValue& Value)
-{
-	if (possessedPawn)
-		possessedPawn->EndRanged();
-}
-
-void ASwashPlayerController::CallStartSpecial(const FInputActionValue& Value)
 {
 	if (possessedPawn)
 		possessedPawn->StartSpecial();
 }
 
-void ASwashPlayerController::CallEndSpecial(const FInputActionValue& Value)
+void ASwashPlayerController::CallEndRanged(const FInputActionValue& Value)
 {
 	if (possessedPawn)
 		possessedPawn->EndSpecial();
 }
+
+void ASwashPlayerController::CallStartSpecial(const FInputActionValue& Value)
+{
+	if (possessedPawn)
+		possessedPawn->StartStab();
+}
+
+//void ASwashPlayerController::CallEndSpecial(const FInputActionValue& Value)
+//{
+//	if (possessedPawn)
+//		possessedPawn->EndStab();
+//}
 
 void ASwashPlayerController::CallStartBlock(const FInputActionValue& Value)
 {
@@ -146,9 +147,15 @@ void ASwashPlayerController::CallEndBlock(const FInputActionValue& Value)
 		possessedPawn->EndBlock();
 }
 
-void ASwashPlayerController::CallInteract(const FInputActionValue& Value)
+void ASwashPlayerController::CallStartInteract(const FInputActionValue& Value)
 {
 	if (possessedPawn)
-		possessedPawn->Interact();
+		possessedPawn->StartInteract();
+}
+
+void ASwashPlayerController::CallEndInteract(const FInputActionValue& Value)
+{
+	if (possessedPawn)
+		possessedPawn->EndInteract();
 }
 

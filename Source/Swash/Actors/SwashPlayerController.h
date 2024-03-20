@@ -82,7 +82,7 @@ public:
 
 	/** Melee attack input */
 	void CallStartMelee(const FInputActionValue& Value);
-	void CallEndMelee(const FInputActionValue& Value);
+	//void CallEndMelee(const FInputActionValue& Value);
 
 	/** Ranged attack input */
 	void CallStartRanged(const FInputActionValue& Value);
@@ -90,14 +90,15 @@ public:
 
 	/** Special ability input */
 	void CallStartSpecial(const FInputActionValue& Value);
-	void CallEndSpecial(const FInputActionValue& Value);
+	//void CallEndSpecial(const FInputActionValue& Value);
 
 	/** Block input */
 	void CallStartBlock(const FInputActionValue& Value);
 	void CallEndBlock(const FInputActionValue& Value);
 
 	/** Interact input */
-	void CallInteract(const FInputActionValue& Value);
+	void CallStartInteract(const FInputActionValue& Value);
+	void CallEndInteract(const FInputActionValue& Value);
 
 
 };

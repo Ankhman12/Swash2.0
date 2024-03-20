@@ -3,37 +3,48 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Character.h"
+#include "GameFramework/Pawn.h"
 #include "InputActionValue.h"
-#include "AbilitySystemInterface.h"
-#include "GameplayEffect.h"
+#include "Components/SphereComponent.h"
 #include "Components/BoxComponent.h"
-//#include "../Actors/Weapons/Weapon.h"
+#include "../Components/SwashCharacterMovementComponent.h"
 #include "../Actors/Weapons/MeleeWeapon.h"
-//#include "../Actors/Weapons/RangedWeapon.h"
 #include "../Core/SwashData.h"
 #include "SwashDummy.h"
 #include "SwashCharacter.generated.h"
 
-//DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMontagePlayDelegate, FName, NotifyName);
-class USwashGameplayAbility;
-class USwashAbilitySystemComponent;
-class USwashAttributeSet;
-
 
 UCLASS(config=Game)
-class ASwashCharacter : public ACharacter, public IAbilitySystemInterface
+class ASwashCharacter : public APawn
 {
 	GENERATED_BODY()
-
+public:
+	/** Default UObject constructor. */
+	ASwashCharacter(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 private:
+	//General Props and Subobjects
 
-	//Components
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<USwashAbilitySystemComponent> AbilitySystemComponent;
+	/** The CapsuleComponent being used for movement collision (by CharacterMovement). Always treated as being vertically aligned in simple collision check functions. */
+	UPROPERTY(Category = Character, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UCapsuleComponent> CharacterCapsule;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<USwashAttributeSet> Attributes;
+	/** The main skeletal mesh associated with this Character (optional sub-object). */
+	UPROPERTY(Category = Character, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USkeletalMeshComponent> Mesh;
+
+	/** Movement component used for movement logic in various movement modes (walking, falling, etc), containing relevant settings and functions to control movement. */
+	UPROPERTY(Category = Character, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USwashCharacterMovementComponent> CharacterMovement;
+
+#if WITH_EDITORONLY_DATA
+	/** Component shown in the editor only to indicate character facing */
+	UPROPERTY()
+	TObjectPtr<UArrowComponent> ArrowComponent;
+#endif
+
+	//Jumping properties
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Climbing", meta = (AllowPrivateAccess = "true"))
+	bool IsHanging = false;
 
 	//Climbing properties
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Climbing", meta = (AllowPrivateAccess = "true"))
@@ -46,41 +57,99 @@ private:
 	FTimerHandle HangCooldownTimer;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Climbing", meta = (AllowPrivateAccess = "true"))
-	FTimerHandle HangTimer;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Climbing", meta = (AllowPrivateAccess = "true"))
 	float LedgeJumpOffForce = 1800.0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Climbing", meta = (AllowPrivateAccess = "true"))
 	float DefaultHangCooldown = 0.5;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Climbing", meta = (AllowPrivateAccess = "true"))
-	float MinHangTime = 0.15;
-
-	//Ability system properties
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Abilities", meta = (AllowPrivateAccess = "true"))
-	TArray<TSubclassOf<UGameplayEffect>> PassiveGameplayEffects;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Abilities", meta = (AllowPrivateAccess = "true"))
-	TArray<TSubclassOf<USwashGameplayAbility>> GameplayAbilities;
-
-	UPROPERTY()
-	uint8 bAbilitesInitialized:1;
-
 public:
 
-	//Other props
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	//Health & Damage props
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int health;
+
+	//Movement Props
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	bool IsHoldingJump;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FGameplayTag HangingTag;
-public:
-	
-	//Constructor
-	ASwashCharacter();
+	//Block & Dodge props
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	bool IsBlocking = false;
 
-	friend USwashAttributeSet;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	bool IsDodging = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	bool IsRolling = false;
+
+	//Parry & Stun props
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	bool CanParry = false;
+	 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	FTimerHandle ParryTimer;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	float ParryTime = 0.3;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	bool IsStunned = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	FTimerHandle StunCooldownTimer;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	float ParryStunTime = 1.0;
+
+	//Attack and Hit props
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	bool IsAttacking = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	FTimerHandle AttackCooldownTimer;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	float SlashCooldown = 0.15;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	float StabCooldown = 0.3;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	float StabStunTime = 0.5;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	float KickCooldown = 0.45;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	bool IsHit = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	FTimerHandle HitCooldownTimer;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	float DefaultHitCooldown = 2.0;
+
+	//Hitboxes
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UCapsuleComponent> StabHitbox;
+
+	UFUNCTION()
+	void OnStabOverlapBegin(class UPrimitiveComponent* OtherComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp2, int32 OtherBodyIndex, bool someBool, const FHitResult& hitResult);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<USphereComponent> SlashHitbox;
+
+	UFUNCTION()
+	void OnSlashOverlapBegin(class UPrimitiveComponent* OtherComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp2, int32 OtherBodyIndex, bool someBool, const FHitResult& hitResult);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UBoxComponent> KickHitbox;
+
+	UFUNCTION()
+	void OnKickOverlapBegin(class UPrimitiveComponent* OtherComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp2, int32 OtherBodyIndex, bool someBool, const FHitResult& hitResult);
+
+
+public:
 
 	//INPUT FUNCTIONS
 
@@ -88,38 +157,40 @@ public:
 	void Move(const FVector2D& Value);
 
 	/** Called for jump input */
-	UFUNCTION(BlueprintImplementableEvent)
+	//UFUNCTION(BlueprintCallable)
 	void StartJump();
-	UFUNCTION(BlueprintImplementableEvent)
+	//UFUNCTION(BlueprintCallable)
 	void EndJump();
 
-	/** Called for melee attack input */
-	UFUNCTION(BlueprintImplementableEvent)
-	void StartMelee();
-	UFUNCTION(BlueprintImplementableEvent)
-	void EndMelee();
+	/** Called for Slash input */
+	//UFUNCTION(BlueprintCallable, BlueprintImplementableEvent)
+	void StartSlash();
+	//UFUNCTION(BlueprintCallable)
+	void EndSlash();
 
-	/** Called for ranged attack input */
-	UFUNCTION(BlueprintImplementableEvent)
-	void StartRanged();
-	UFUNCTION(BlueprintImplementableEvent)
-	void EndRanged();
+	/** Called for Stab input */
+	//UFUNCTION(BlueprintCallable)
+	void StartStab();
+	//UFUNCTION(BlueprintCallable)
+	void EndStab();
 
-	/** Called for special ability input */
-	UFUNCTION(BlueprintImplementableEvent)
+	/** Called for Special/Use Item input */
+	//UFUNCTION(BlueprintCallable)
 	void StartSpecial();
-	UFUNCTION(BlueprintImplementableEvent)
+	//UFUNCTION(BlueprintCallable)
 	void EndSpecial();
 
 	/** Called for block input */
-	UFUNCTION(BlueprintImplementableEvent)
+	//UFUNCTION(BlueprintCallable)
 	void StartBlock();
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	//UFUNCTION(BlueprintCallable)
 	void EndBlock();
 
-	/** Called for interact input */
-	UFUNCTION(BlueprintImplementableEvent)
-	void Interact();
+	/** Called for interact/climb input */
+	//UFUNCTION(BlueprintCallable)
+	void StartInteract();
+	//UFUNCTION(BlueprintCallable)
+	void EndInteract();
 
 protected:
 
@@ -129,64 +200,7 @@ protected:
 
 	void Tick(float DeltaSeconds) override;
 
-	void PossessedBy(AController* NewController) override;
-
-	void OnRep_PlayerState() override;
-
-	// Gameplay Ability Interface
-	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
-	// End of Ability System Interface
-
-	
-	// Two below events are from RPG example project, that showcases the Gameplay Ability System (I'm stealing them)
-
-	/**
-	 * Called when character takes damage, which may have killed them
-	 *
-	 * @param DamageAmount Amount of damage that was done, not clamped vased on current health
-	 * @param HitInfo The hit info that generated this damage
-	 * @param DamageTags The gameplay tags of the event that did the damage
-	 * @param InstigatorCharacter The character the initiated this damage
-	 * @param DamageCauser The actual actor that did the damage, might be a weapon or projectile
-	*/
-	UFUNCTION(BlueprintImplementableEvent)
-	void OnDamaged(float DamageAmount, const FHitResult& HitInfo, const struct FGameplayTagContainer& DamageTags, ASwashCharacter* InstigatorCharacter, AActor* DamageCauser);
-
-	/**
-	 * Called when health is changed, either from healing or being damaged
-	 * For famage this is called in addition to OnDamaged/OnKilled
-	 *
-	 * @param DeltaValue Change in health value, positive for heal, negative for cost. If 0 the delta is unknown
-	 * @param EventTags The gameplay tags of the event that changed mana
-	 */
-	UFUNCTION(BlueprintImplementableEvent)
-	void OnHealthChanged(float DeltaValue, const struct FGameplayTagContainer& EventTags);
-
-	//The following are custom events or functions, still made for ability system
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
-	void OnDeath();
-
-	virtual void HandleDamage(float DamageAmount, const FHitResult& HitInfo, const struct FGameplayTagContainer& DamageTags, ASwashCharacter* InstigatorCharacter, AActor* DamageCauser);
-
-	virtual void HandleHealthChanged(float DeltaValue, const struct FGameplayTagContainer& EventTags);
-
-	UFUNCTION(BlueprintCallable)
-	virtual float GetHealth();
-
-	UFUNCTION(BlueprintCallable)
-	virtual float GetMaxHealth();
-
-	//Weapon hit delegate event
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
-	void OnSwordHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-
 private:
-	
-	// === Ability System Functions ===
-
-	void AddStartupGameplayAbilities();
-
-	void SendLocalInputToASC(bool bIsPressed, const ESwashAbilityInputID AbilityInputID);
 
 	// === Ledge Hanging Functions ===
 
@@ -200,29 +214,31 @@ private:
 
 	UFUNCTION()
 	void SetCanLedgeCheck(bool canCheck);
-
-	void LedgeVault(FVector LedgePos);
 	
 
 public: 
 
 	// === Combat functions ===
 
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
-	void MeleeHitPlayer(ASwashCharacter* playerRef);
+	UFUNCTION(BlueprintCallable)
+	void HitPlayer(ASwashCharacter* playerRef, ESwashAttackType attackType);
 
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
-	void MeleeHitDummy(ASwashDummy* dummyRef);
+	//UFUNCTION(BlueprintCallable)
+	//void MeleeHitDummy(ASwashDummy* dummyRef);
 
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
-	void StartStun();
+	UFUNCTION()
+	void SetHit(bool newHit);
 
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	UFUNCTION()
+	void SetCanParry(bool newParry);
+
+	UFUNCTION(BlueprintCallable)
+	void StartStun(float stunTime);
+
+	UFUNCTION(BlueprintCallable)
 	void EndStun();
 
-	bool GetHanging();
-
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	UFUNCTION(BlueprintCallable)
 	void AddKnockback(FVector impulse);
 
 };
