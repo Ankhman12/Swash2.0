@@ -13,11 +13,10 @@
 //////////////////////////////////////////////////////////////////////////
 // ASwashCharacter
 
-ASwashCharacter::ASwashCharacter(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
+ASwashCharacter::ASwashCharacter(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer.SetDefaultSubObjectClass<USwashCharacterMovementComponent>(CharacterMovementComponentName))
 {
 	// Set size for collision capsule
-	CharacterCapsule = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CharacterCapsule"));
-	CharacterCapsule->InitCapsuleSize(42.f, 96.0f);
+	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 
 	// Don't rotate when the controller rotates. Let that just affect the camera.
 	bUseControllerRotationPitch = false;
@@ -25,34 +24,34 @@ ASwashCharacter::ASwashCharacter(const FObjectInitializer& ObjectInitializer) : 
 	bUseControllerRotationRoll = false;
 
 	// Configure character movement
-	//CharacterMovement->bOrientRotationToMovement = true; // Character moves in the direction of input...	
-	//CharacterMovement->RotationRate = FRotator(0.0f, 500.0f, 0.0f); // ...at this rotation rate
+	GetCharacterMovement()->bOrientRotationToMovement = true; // Character moves in the direction of input...	
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 3000.0f, 0.0f); // ...at this rotation rate
 
 	// Note: For faster iteration times these variables, and many more, can be tweaked in the Character Blueprint
 	// instead of recompiling to adjust them
-	//GetCharacterMovement()->JumpZVelocity = 700.f;
-	//GetCharacterMovement()->AirControl = 0.35f;
-	//GetCharacterMovement()->MaxWalkSpeed = 500.f;
-	//GetCharacterMovement()->MinAnalogWalkSpeed = 20.f;
-	//GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
+	GetCharacterMovement()->JumpZVelocity = 700.f;
+	GetCharacterMovement()->AirControl = 0.35f;
+	GetCharacterMovement()->MaxWalkSpeed = 500.f;
+	GetCharacterMovement()->MinAnalogWalkSpeed = 20.f;
+	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
 
 	//Create combat hitboxes
 	StabHitbox = CreateDefaultSubobject<UCapsuleComponent>(TEXT("StabHitbox"));
-	StabHitbox->AttachToComponent(CharacterCapsule, FAttachmentTransformRules::KeepRelativeTransform);
+	StabHitbox->AttachToComponent(GetCapsuleComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 	StabHitbox->SetGenerateOverlapEvents(true);
 	StabHitbox->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
 	StabHitbox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	StabHitbox->OnComponentBeginOverlap.AddDynamic(this, &ASwashCharacter::OnStabOverlapBegin);
 
 	SlashHitbox = CreateDefaultSubobject<USphereComponent>(TEXT("SlashHitbox"));
-	SlashHitbox->AttachToComponent(CharacterCapsule, FAttachmentTransformRules::KeepRelativeTransform);
+	SlashHitbox->AttachToComponent(GetCapsuleComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 	SlashHitbox->SetGenerateOverlapEvents(true);
 	SlashHitbox->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
 	SlashHitbox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	SlashHitbox->OnComponentBeginOverlap.AddDynamic(this, &ASwashCharacter::OnSlashOverlapBegin);
 
 	KickHitbox = CreateDefaultSubobject<UBoxComponent>(TEXT("KickHitbox"));
-	KickHitbox->AttachToComponent(CharacterCapsule, FAttachmentTransformRules::KeepRelativeTransform);
+	KickHitbox->AttachToComponent(GetCapsuleComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 	KickHitbox->SetGenerateOverlapEvents(true);
 	KickHitbox->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
 	KickHitbox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -81,7 +80,7 @@ void ASwashCharacter::Tick(float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 	
 	//Lock Actor on X axis
-	FVector currentLocation = CharacterCapsule->GetComponentLocation();
+	FVector currentLocation = GetCapsuleComponent()->GetComponentLocation();
 	FVector newLocation = FVector(0.0, currentLocation.Y, currentLocation.Z);
 	SetActorLocation(newLocation, false, nullptr, ETeleportType::TeleportPhysics);
 

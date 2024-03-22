@@ -15,32 +15,14 @@
 
 
 UCLASS(config=Game)
-class ASwashCharacter : public APawn
+class ASwashCharacter : public ACharacter
 {
 	GENERATED_BODY()
 public:
 	/** Default UObject constructor. */
-	ASwashCharacter(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+	explicit ASwashCharacter(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
 private:
-	//General Props and Subobjects
-
-	/** The CapsuleComponent being used for movement collision (by CharacterMovement). Always treated as being vertically aligned in simple collision check functions. */
-	UPROPERTY(Category = Character, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UCapsuleComponent> CharacterCapsule;
-
-	/** The main skeletal mesh associated with this Character (optional sub-object). */
-	UPROPERTY(Category = Character, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<USkeletalMeshComponent> Mesh;
-
-	/** Movement component used for movement logic in various movement modes (walking, falling, etc), containing relevant settings and functions to control movement. */
-	UPROPERTY(Category = Character, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<USwashCharacterMovementComponent> CharacterMovement;
-
-#if WITH_EDITORONLY_DATA
-	/** Component shown in the editor only to indicate character facing */
-	UPROPERTY()
-	TObjectPtr<UArrowComponent> ArrowComponent;
-#endif
 
 	//Jumping properties
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Climbing", meta = (AllowPrivateAccess = "true"))
