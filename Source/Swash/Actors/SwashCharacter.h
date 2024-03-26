@@ -3,18 +3,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Pawn.h"
+#include "GameFramework/Character.h"
 #include "InputActionValue.h"
 #include "Components/SphereComponent.h"
 #include "Components/BoxComponent.h"
-#include "../Components/SwashCharacterMovementComponent.h"
+#include "Components/ArrowComponent.h"
 #include "../Actors/Weapons/MeleeWeapon.h"
 #include "../Core/SwashData.h"
 #include "SwashDummy.h"
 #include "SwashCharacter.generated.h"
 
-
-UCLASS(config=Game)
+UCLASS()
 class ASwashCharacter : public ACharacter
 {
 	GENERATED_BODY()
@@ -22,47 +21,11 @@ public:
 	/** Default UObject constructor. */
 	explicit ASwashCharacter(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-private:
-
-	//Jumping properties
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Climbing", meta = (AllowPrivateAccess = "true"))
-	bool IsHanging = false;
-
-	//Climbing properties
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Climbing", meta = (AllowPrivateAccess = "true"))
-	bool IsHanging = false;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Climbing", meta = (AllowPrivateAccess = "true"))
-	bool CanLedgeCheck = true;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Climbing", meta = (AllowPrivateAccess = "true"))
-	FTimerHandle HangCooldownTimer;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Climbing", meta = (AllowPrivateAccess = "true"))
-	float LedgeJumpOffForce = 1800.0;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Climbing", meta = (AllowPrivateAccess = "true"))
-	float DefaultHangCooldown = 0.5;
-
 public:
 
 	//Health & Damage props
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	int health;
-
-	//Movement Props
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	bool IsHoldingJump;
-
-	//Block & Dodge props
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	bool IsBlocking = false;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	bool IsDodging = false;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	bool IsRolling = false;
 
 	//Parry & Stun props
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
@@ -135,6 +98,7 @@ public:
 
 	//INPUT FUNCTIONS
 
+	//Movement Input Functions
 	/** Called for movement input */
 	void Move(const FVector2D& Value);
 
@@ -181,22 +145,6 @@ protected:
 	void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	void Tick(float DeltaSeconds) override;
-
-private:
-
-	// === Ledge Hanging Functions ===
-
-	void StartLedgeHang(FVector LedgePos);
-
-	void EndLedgeHang();
-
-	void LedgeCheck();
-
-	void LedgeHangUpdate();
-
-	UFUNCTION()
-	void SetCanLedgeCheck(bool canCheck);
-	
 
 public: 
 

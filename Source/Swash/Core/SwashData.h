@@ -17,7 +17,7 @@ enum class ESwashAbilityInputID : uint8
 };
 
 UENUM(BlueprintType)
-enum class ESwashAttackType : uint8
+enum ESwashAttackType
 {
 	Slash,
 	Stab,
@@ -25,22 +25,12 @@ enum class ESwashAttackType : uint8
 };
 
 UENUM(BlueprintType)
-enum class ESwashMovementMode : uint8
+enum ESwashCombatState
 {
-	None,
-	Walking,
-	Sprinting,
-	Falling,
-	Climbing
-};
-
-UENUM(BlueprintType)
-enum class ESwashCombatState : uint8
-{
+	Idle,
 	Attacking,
 	Blocking,
 	Aiming,
 	Dodging,
-	Hit,
-
+	Hit
 };
